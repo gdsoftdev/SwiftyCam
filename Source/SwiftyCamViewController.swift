@@ -118,7 +118,7 @@ import AVFoundation
 
 	/// Video capture quality
 
-	public var videoQuality : VideoQuality       = .high
+	public var videoQuality : VideoQuality       = .photo
 
 	/// Disable audio
 	public var disableAudio											 = false
@@ -166,7 +166,7 @@ import AVFoundation
 	public var defaultCamera                   = CameraSelection.rear
     
     
-    public var defaultLens = CameraLens.telephoto {
+    public var defaultLens = CameraLens.auto {
          didSet {
              if(sessionRunning){
                  sessionQueue.async { [unowned self] in
@@ -180,7 +180,7 @@ import AVFoundation
 
 	/// Sets wether the taken photo or video should be oriented according to the device orientation
 
-    public var shouldUseDeviceOrientation      = false {
+    public var shouldUseDeviceOrientation      = true {
         didSet {
             orientation.shouldUseDeviceOrientation = shouldUseDeviceOrientation
         }
