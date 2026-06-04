@@ -463,6 +463,37 @@ import AVFoundation
 		sessionQueue.async {
 			switch self.setupResult {
 			case .success:
+				//GDSOFT - configuration du zoom par défaut
+				for input in self.session.inputs {
+					if let deviceInput = input as? AVCaptureDeviceInput {
+						let currentDevice = deviceInput.device
+						
+						if #available(iOS 13.0, *),
+							(currentDevice.deviceType == .builtInDualWideCamera || currentDevice.deviceType == .builtInTripleCamera) {
+							do {
+								try currentDevice.lockForConfiguration()
+								
+								// Valeur de secours par défaut (2.0 correspond généralement au 1x)
+								var targetZoom: CGFloat = 2.0
+
+								//récupération des valeurs de zoom possible pour atteindre chaque capteur								
+								let switchFactors = currentDevice.virtualDeviceSwitchOverVideoZoomFactors
+								if !switchFactors.isEmpty {
+									// Le premier facteur est le point de bascule exact entre l'ultra-wide et le wide
+									targetZoom = CGFloat(switchFactors[0].floatValue)
+								}
+								
+								currentDevice.videoZoomFactor = targetZoom
+								currentDevice.unlockForConfiguration()
+								
+								print("SwiftyCam Fork: Zoom configuré dynamiquement à \(targetZoom) pour \(currentDevice.deviceType.rawValue)")
+							} catch {
+								print("SwiftyCam Fork: Impossible de verrouiller la configuration : \(error)")
+							}
+						}
+					}
+				}
+				//GDSOFT END
 				// Begin Session
 				self.session.startRunning()
 				self.isSessionRunning = self.session.isRunning
