@@ -849,8 +849,8 @@ import AVFoundation
 				// Sur une Dual Camera, la valeur 1.0 = UltraWide. 
 				// Pour basculer sur le capteur standard (1x), le facteur est généralement de 2.0
 				// (Consultez avDevice.virtualDeviceSwitchOverVideoZoomFactors si vous voulez la valeur exacte d'Apple)
-				if avDevice.deviceType == .builtInDualWideCamera {
-					avDevice.videoZoomFactor = 2.0
+				if device.deviceType == .builtInDualWideCamera {
+					device.videoZoomFactor = 2.0
 				}
 
 				device.unlockForConfiguration()
