@@ -301,6 +301,10 @@ import AVFoundation
 
     public var sessionRunning               = false
 
+    //GDSOFT - vrai tant que la vue caméra est affichée (entre viewDidAppear et viewDidDisappear) :
+    //permet de savoir si la session doit être relancée au retour au premier plan de l'application
+    private var sessionShouldRun            = false
+
 	/// Disable view autorotation for forced portrait recorindg
 
 	override open var shouldAutorotate: Bool {
@@ -440,8 +444,35 @@ import AVFoundation
 
     open override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        addSessionObservers()
+    }
+
+    //GDSOFT - les observers sont retirés dans viewDidDisappear mais viewWillAppear n'est appelé qu'une fois par
+    //nativescript-camera-plus (création de la vue native) alors que viewDidAppear l'est à chaque onLoaded :
+    //on les (ré)enregistre donc aux deux endroits, en retirant d'abord les existants pour éviter les doublons
+    private func addSessionObservers() {
+        NotificationCenter.default.removeObserver(self)
         NotificationCenter.default.addObserver(self, selector: #selector(captureSessionDidStartRunning), name: .AVCaptureSessionDidStartRunning, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(captureSessionDidStopRunning),  name: .AVCaptureSessionDidStopRunning,  object: nil)
+        // retour au premier plan / fin d'interruption (appel, multitâche...) : la session n'est pas forcément
+        // relancée par iOS et sessionRunning resterait à false, empêchant toute prise de photo
+        NotificationCenter.default.addObserver(self, selector: #selector(resumeSessionIfNeeded), name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(resumeSessionIfNeeded), name: .AVCaptureSessionInterruptionEnded, object: session)
+    }
+
+    //GDSOFT - relance la session si la vue caméra est affichée mais que la session ne tourne plus,
+    //et resynchronise sessionRunning avec l'état réel de la session
+    @objc private func resumeSessionIfNeeded() {
+        sessionQueue.async {
+            guard self.sessionShouldRun == true, self.setupResult == .success else {
+                return
+            }
+            if self.session.isRunning == false {
+                self.session.startRunning()
+            }
+            self.isSessionRunning = self.session.isRunning
+            self.sessionRunning = self.session.isRunning
+        }
     }
 
 	// MARK: ViewDidAppear
@@ -449,6 +480,9 @@ import AVFoundation
 	/// ViewDidAppear(_ animated:) Implementation
 	override open func viewDidAppear(_ animated: Bool) {
 		super.viewDidAppear(animated)
+
+		addSessionObservers()
+		sessionShouldRun = true
 
 		// Subscribe to device rotation notifications
 
@@ -529,6 +563,7 @@ import AVFoundation
 
         NotificationCenter.default.removeObserver(self)
         sessionRunning = false
+        sessionShouldRun = false
 
 		// If session is running, stop the session
 		if self.isSessionRunning == true {
@@ -1039,8 +1074,15 @@ import AVFoundation
 	}
 
 	@objc public func capturePhotoAsyncronously(completionHandler: @escaping(Bool) -> ()) {
+        //GDSOFT - sessionRunning peut être désynchronisé (notification DidStartRunning manquée) alors que la session tourne
+        if sessionRunning == false && session.isRunning == true {
+            sessionRunning = true
+        }
         guard sessionRunning == true else {
             print("[SwiftyCam]: Cannot take photo. Capture session is not running")
+            //GDSOFT - on tente de relancer la session pour que la prise suivante fonctionne
+            resumeSessionIfNeeded()
+            completionHandler(false)
             return
         }
         
